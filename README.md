@@ -9,6 +9,7 @@ A native Expo module that provides access to ambient light sensor (lux) measurem
 - ⚙️ **Configurable**: Adjustable update interval and calibration constant
 - 🔐 **Permission handling**: Built-in permission request and status checking
 - 📊 **Event-based**: Listen to light level changes via event listeners
+- 📷 **Back camera**: Uses the device's back camera for ambient light measurements
 
 ## Installation
 
@@ -220,6 +221,7 @@ Removes all lux event listeners.
 ### iOS
 
 - Uses `AVCaptureDevice` to access camera metadata
+- Uses the **back camera** for light measurements (falls back to default camera if back camera is unavailable)
 - Calculates lux from EXIF data (aperture, exposure time, ISO)
 - Default calibration constant: `50`
 - Requires `NSCameraUsageDescription` in `Info.plist` (handled automatically by Expo)
@@ -227,6 +229,7 @@ Removes all lux event listeners.
 ### Android
 
 - Uses Camera2 API to capture image frames
+- Uses the **back camera** for light measurements (falls back to first available camera if back camera is unavailable)
 - Calculates lux from image buffer average
 - Default calibration constant: `1200`
 - Requires `CAMERA` permission (handled automatically by Expo)
@@ -234,6 +237,8 @@ Removes all lux event listeners.
 ## Permissions
 
 This module requires camera permission because it uses the device's camera to measure ambient light. The permission is requested automatically when you call `requestPermissionsAsync()`.
+
+**Note:** The module prioritizes the back camera (rear-facing camera) for measurements. If the back camera is unavailable, it will fall back to the default camera. Make sure the camera is not obstructed and is facing the light source you want to measure.
 
 **iOS:** Add to `app.json`:
 ```json
