@@ -28,11 +28,13 @@
     "expo",
     "expo-lux-sensor",
     "ExpoLuxSensor",
-    "light-sensor",
     "lux",
     "ambient-light",
+    "sensor",
     "camera",
-    "sensor"
+    "illuminance-measurement",
+    "lux-meter",
+    "light-sensor"
   ],
   "repository": "https://github.com/15bedirhan/expo-lux-sensor",
   "bugs": {

@@ -251,7 +251,7 @@ This module requires camera permission because it uses the device's camera to me
 }
 ```
 
-**Android:** The permission is automatically added by Expo.
+**Android:** The `CAMERA` permission is automatically added to your app's `AndroidManifest.xml` when you install this module. The module's `AndroidManifest.xml` is automatically merged with your app's manifest during the build process. You don't need to add it manually in `app.json`.
 
 ## Troubleshooting
 
