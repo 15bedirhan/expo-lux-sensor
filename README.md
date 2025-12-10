@@ -96,10 +96,10 @@ async function startLightSensor() {
   }
 
   // Start with custom options
-  await startLuxUpdatesAsync({
-    updateInterval: 0.5, // Update every 500ms
-    calibrationConstant: 1200, // Calibration constant (Android) or 50 (iOS)
-  });
+    await startLuxUpdatesAsync({
+      updateInterval: 0.5, // Update every 500ms
+      calibrationConstant: 80, // indoor: 60–80, outdoor bright: 100–140
+    });
 
   // Listen to updates
   const subscription = addLuxListener((sample) => {
@@ -123,7 +123,7 @@ Starts the light sensor updates. Requires camera permission.
 **Parameters:**
 - `options` (optional): Configuration options
   - `updateInterval?: number` - Update interval in seconds (default: 0.4)
-  - `calibrationConstant?: number` - Calibration constant for lux calculation (default: 1200 for Android, 50 for iOS)
+  - `calibrationConstant?: number` - Calibration constant for lux calculation (default: 60)
 
 **Throws:**
 - `MissingPermissions` - If camera permission is not granted
@@ -223,16 +223,17 @@ Removes all lux event listeners.
 - Uses `AVCaptureDevice` to access camera metadata
 - Uses the **back camera** for light measurements (falls back to default camera if back camera is unavailable)
 - Calculates lux from EXIF data (aperture, exposure time, ISO)
-- Default calibration constant: `50`
+- Default calibration constant: `60–80` for typical indoor; `100–140` for bright outdoor scenes
 - Requires `NSCameraUsageDescription` in `Info.plist` (handled automatically by Expo)
 
 ### Android
 
-- Uses Camera2 API to capture image frames
+- Prefers the device light sensor when available (no camera usage)
+- Falls back to Camera2 API with exposure metadata when no light sensor is available
 - Uses the **back camera** for light measurements (falls back to first available camera if back camera is unavailable)
-- Calculates lux from image buffer average
-- Default calibration constant: `1200`
-- Requires `CAMERA` permission (handled automatically by Expo)
+- Calculates lux from exposure metadata (aperture, exposure time, ISO)
+- Default calibration constant: `60–80` for typical indoor; `100–140` for bright outdoor scenes
+- Requires `CAMERA` permission only when falling back to the camera (handled automatically by Expo)
 
 ## Permissions
 
@@ -252,6 +253,7 @@ This module requires camera permission because it uses the device's camera to me
 ```
 
 **Android:** The `CAMERA` permission is automatically added to your app's `AndroidManifest.xml` when you install this module. The module's `AndroidManifest.xml` is automatically merged with your app's manifest during the build process. You don't need to add it manually in `app.json`.
+
 
 ## Troubleshooting
 

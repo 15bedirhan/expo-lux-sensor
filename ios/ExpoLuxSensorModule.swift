@@ -14,7 +14,7 @@ public final class ExpoLuxSensorModule: Module {
 
   private struct LuxSensorConfiguration {
     var updateInterval: TimeInterval = 0.4
-    var calibrationConstant: Double = 50
+    var calibrationConstant: Double = 60
   }
 
   private struct LuxSensorOptions: Record {

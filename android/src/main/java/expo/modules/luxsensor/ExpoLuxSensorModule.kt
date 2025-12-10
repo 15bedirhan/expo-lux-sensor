@@ -5,14 +5,19 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CameraAccessException
-import android.media.Image
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
@@ -26,19 +31,22 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import kotlinx.coroutines.launch
 
-class ExpoLuxSensorModule : Module() {
+class ExpoLuxSensorModule : Module(), SensorEventListener {
   private val reactContext: Context?
     get() = appContext.reactContext
 
+  private var sensorManager: SensorManager? = null
+  private var lightSensor: Sensor? = null
   private var cameraDevice: CameraDevice? = null
   private var captureSession: CameraCaptureSession? = null
   private var imageReader: ImageReader? = null
   private var backgroundThread: HandlerThread? = null
   private var backgroundHandler: Handler? = null
-  private var isStreaming = false
+  private var isCameraStreaming = false
+  private var isSensorStreaming = false
   private var lastEmission = 0L
   private var updateIntervalMs = 400L
-  private var calibrationConstant = 1200.0
+  private var calibrationConstant = 60.0
 
   private class LuxSensorOptions : Record {
     @Field var updateInterval: Double? = null
@@ -67,17 +75,33 @@ class ExpoLuxSensorModule : Module() {
     }
 
     AsyncFunction("startAsync") { options: LuxSensorOptions? ->
-      ensurePermission()
-      startCamera(options)
+      start(options)
     }
 
     AsyncFunction("stopAsync") {
-      stopCamera()
+      stopAll()
     }
 
     AsyncFunction("isRunningAsync") {
-      isStreaming
+      isCameraStreaming || isSensorStreaming
     }
+  }
+
+  private fun start(options: LuxSensorOptions?) {
+    applyOptions(options)
+    val context = reactContext ?: throw Exceptions.ReactContextLost()
+    if (sensorManager == null) {
+      sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+      lightSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LIGHT)
+    }
+
+    if (lightSensor != null) {
+      startLightSensor()
+      return
+    }
+
+    ensurePermission()
+    startCamera()
   }
 
   private fun ensurePermission() {
@@ -97,13 +121,10 @@ class ExpoLuxSensorModule : Module() {
   }
 
   @SuppressLint("MissingPermission")
-  private fun startCamera(options: LuxSensorOptions?) {
-    if (isStreaming) {
-      applyOptions(options)
+  private fun startCamera() {
+    if (isCameraStreaming) {
       return
     }
-
-    applyOptions(options)
     startBackgroundThread()
 
     val context = reactContext ?: throw Exceptions.ReactContextLost()
@@ -115,7 +136,7 @@ class ExpoLuxSensorModule : Module() {
     if (imageReader == null) {
       imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 2).apply {
         setOnImageAvailableListener({ reader ->
-          handleImage(reader.acquireLatestImage())
+          reader.acquireLatestImage()?.close()
         }, backgroundHandler)
       }
     }
@@ -124,7 +145,7 @@ class ExpoLuxSensorModule : Module() {
   }
 
   private fun stopCamera() {
-    isStreaming = false
+    isCameraStreaming = false
     captureSession?.close()
     captureSession = null
     cameraDevice?.close()
@@ -134,43 +155,15 @@ class ExpoLuxSensorModule : Module() {
     stopBackgroundThread()
   }
 
-  private fun handleImage(image: Image?) {
-    if (image == null) return
-
-    val luxValue = computeLux(image)
-    image.close()
-
-    if (luxValue == null) return
-
-    val now = System.currentTimeMillis()
-    if (now - lastEmission < updateIntervalMs) {
-      return
-    }
-
-    lastEmission = now
-    appContext.mainQueue.launch {
-      sendEvent(
-        "onLuxChanged",
-        mapOf(
-          "lux" to luxValue,
-          "timestamp" to now.toDouble()
-        )
-      )
-    }
-  }
-
-  private fun computeLux(image: Image): Double? {
-    val buffer = image.planes.firstOrNull()?.buffer ?: return null
-    if (buffer.remaining() <= 0) {
+  private fun computeLux(result: CaptureResult): Double? {
+    val aperture = result.get(CaptureResult.LENS_APERTURE) ?: return null
+    val exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: return null
+    val iso = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: return null
+    if (aperture <= 0.0 || exposureNs <= 0L || iso <= 0) {
       return null
     }
-    var sum = 0L
-    while (buffer.hasRemaining()) {
-      sum += buffer.get().toInt() and 0xFF
-    }
-    buffer.rewind()
-    val avg = sum.toDouble() / buffer.remaining().coerceAtLeast(1)
-    return (avg / 255.0) * calibrationConstant
+    val exposureSeconds = exposureNs / 1_000_000_000.0
+    return (calibrationConstant * aperture * aperture) / (exposureSeconds * iso)
   }
 
   private val stateCallback = object : CameraDevice.StateCallback() {
@@ -206,8 +199,34 @@ class ExpoLuxSensorModule : Module() {
             set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
             set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON)
           }
-          session.setRepeatingRequest(requestBuilder.build(), null, backgroundHandler)
-          isStreaming = true
+          session.setRepeatingRequest(
+            requestBuilder.build(),
+            object : CameraCaptureSession.CaptureCallback() {
+              override fun onCaptureCompleted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                result: TotalCaptureResult
+              ) {
+                val luxValue = computeLux(result) ?: return
+                val now = System.currentTimeMillis()
+                if (now - lastEmission < updateIntervalMs) {
+                  return
+                }
+                lastEmission = now
+                appContext.mainQueue.launch {
+                  sendEvent(
+                    "onLuxChanged",
+                    mapOf(
+                      "lux" to luxValue,
+                      "timestamp" to now.toDouble()
+                    )
+                  )
+                }
+              }
+            },
+            backgroundHandler
+          )
+          isCameraStreaming = true
         }
 
         override fun onConfigureFailed(session: CameraCaptureSession) {
@@ -246,4 +265,46 @@ class ExpoLuxSensorModule : Module() {
     backgroundThread = null
     backgroundHandler = null
   }
+
+  private fun startLightSensor() {
+    if (isSensorStreaming) return
+    sensorManager?.registerListener(
+      this,
+      lightSensor,
+      SensorManager.SENSOR_DELAY_NORMAL
+    )
+    isSensorStreaming = true
+  }
+
+  private fun stopLightSensor() {
+    if (!isSensorStreaming) return
+    sensorManager?.unregisterListener(this)
+    isSensorStreaming = false
+  }
+
+  private fun stopAll() {
+    stopLightSensor()
+    stopCamera()
+  }
+
+  override fun onSensorChanged(event: SensorEvent?) {
+    if (!isSensorStreaming || event?.sensor?.type != Sensor.TYPE_LIGHT) return
+    val luxValue = event.values.firstOrNull()?.toDouble() ?: return
+    val now = System.currentTimeMillis()
+    if (now - lastEmission < updateIntervalMs) {
+      return
+    }
+    lastEmission = now
+    appContext.mainQueue.launch {
+      sendEvent(
+        "onLuxChanged",
+        mapOf(
+          "lux" to luxValue,
+          "timestamp" to now.toDouble()
+        )
+      )
+    }
+  }
+
+  override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 }
