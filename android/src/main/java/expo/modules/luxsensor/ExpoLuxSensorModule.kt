@@ -46,7 +46,7 @@ class ExpoLuxSensorModule : Module(), SensorEventListener {
   private var isSensorStreaming = false
   private var lastEmission = 0L
   private var updateIntervalMs = 400L
-  private var calibrationConstant = 60.0
+  private var calibrationConstant = 250.0
 
   private class LuxSensorOptions : Record {
     @Field var updateInterval: Double? = null

@@ -14,7 +14,7 @@ public final class ExpoLuxSensorModule: Module {
 
   private struct LuxSensorConfiguration {
     var updateInterval: TimeInterval = 0.4
-    var calibrationConstant: Double = 60
+    var calibrationConstant: Double = 250
   }
 
   private struct LuxSensorOptions: Record {
@@ -206,8 +206,12 @@ extension ExpoLuxSensorModule {
       return nil
     }
 
+    guard aperture > 0, exposureTime > 0 else {
+      return nil
+    }
+
     if let isoArray = exifData[kCGImagePropertyExifISOSpeedRatings as String] as? [Double],
-       let iso = isoArray.first {
+       let iso = isoArray.first, iso > 0 {
       let constant = configuration.calibrationConstant
       return (constant * aperture * aperture) / (exposureTime * iso)
     }
