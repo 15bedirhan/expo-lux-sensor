@@ -1,6 +1,6 @@
 {
   "name": "expo-lux-sensor",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "A native Expo module for ambient light (lux) measurements. Uses hardware light sensor on Android (with camera fallback) and camera-based estimation on iOS.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
