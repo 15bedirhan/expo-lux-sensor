@@ -123,7 +123,7 @@ Starts the light sensor updates. Requires camera permission.
 **Parameters:**
 - `options` (optional): Configuration options
   - `updateInterval?: number` - Update interval in seconds (default: 0.4)
-  - `calibrationConstant?: number` - Calibration constant for lux calculation (default: 250, based on W3C Ambient Light Sensor specification)
+  - `calibrationConstant?: number` - Calibration constant for lux calculation (default: 50)
 
 **Throws:**
 - `MissingPermissions` - If camera permission is not granted
@@ -223,7 +223,7 @@ Removes all lux event listeners.
 - Uses `AVCaptureDevice` to access camera metadata
 - Uses the **back camera** for light measurements (falls back to default camera if back camera is unavailable)
 - Calculates lux from EXIF data (aperture, exposure time, ISO) using the formula: `lux = C × N² / (t × S)`
-- Default calibration constant: `250` based on [W3C Ambient Light Sensor](https://w3c.github.io/ambient-light/) specification
+- Default calibration constant: `50` (optimized for camera-based lux estimation)
 - Requires `NSCameraUsageDescription` in `Info.plist` (handled automatically by Expo)
 
 ### Android
@@ -232,20 +232,25 @@ Removes all lux event listeners.
 - Falls back to Camera2 API with exposure metadata when no light sensor is available
 - Uses the **back camera** for light measurements (falls back to first available camera if back camera is unavailable)
 - Calculates lux from exposure metadata (aperture, exposure time, ISO) using the formula: `lux = C × N² / (t × S)`
-- Default calibration constant: `250` based on [W3C Ambient Light Sensor](https://w3c.github.io/ambient-light/) specification
+- Default calibration constant: `50` (optimized for camera-based lux estimation)
 - Requires `CAMERA` permission only when falling back to the camera (handled automatically by Expo)
 
 ### Calibration Constant
 
-The default calibration constant is `250`, derived from the W3C Ambient Light Sensor specification formula:
+The default calibration constant is `50`, optimized for camera-based lux estimation using the ISO 2720 formula:
 ```
-EV = log2((illuminance × ISO) / C)  where C = 250
+lux = (C × N²) / (t × S)
 ```
+Where:
+- **C** = Calibration constant (default: 50)
+- **N** = Aperture (f-number)
+- **t** = Exposure time (seconds)
+- **S** = ISO sensitivity
 
-Since cameras measure **reflected light** (not incident light), you may need to adjust the constant based on your use case:
-- **150-200**: Darker/muted scenes or plant monitoring setups
-- **250**: Standard (W3C reference)
-- **300-400**: Bright or high-reflectance scenes
+**Adjustment recommendations:**
+- **40-60**: Indoor / typical scenes (default: 50)
+- **60-80**: Bright outdoor scenes
+- **30-40**: Darker environments or if readings seem too high
 
 **Note:** The minimum measurable lux is not 0. Due to camera physics (minimum exposure time, minimum ISO), even in complete darkness you may see values around 1-10 lux. This is expected behavior.
 

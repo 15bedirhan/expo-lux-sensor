@@ -14,7 +14,7 @@ public final class ExpoLuxSensorModule: Module {
 
   private struct LuxSensorConfiguration {
     var updateInterval: TimeInterval = 0.4
-    var calibrationConstant: Double = 250
+    var calibrationConstant: Double = 50
   }
 
   private struct LuxSensorOptions: Record {
@@ -111,6 +111,7 @@ public final class ExpoLuxSensorModule: Module {
         }
         session.addOutput(output)
 
+        session.sessionPreset = .medium
         session.commitConfiguration()
         session.startRunning()
 
@@ -193,30 +194,32 @@ extension ExpoLuxSensorModule {
   }
 
   private func computeLux(sampleBuffer: CMSampleBuffer) -> Double? {
-    guard
-      let attachments = CMCopyDictionaryOfAttachments(
-        allocator: nil,
-        target: sampleBuffer,
-        attachmentMode: CMAttachmentMode(kCMAttachmentMode_ShouldPropagate)
-      ) as? [String: Any],
-      let exifData = attachments[kCGImagePropertyExifDictionary as String] as? [String: Any],
-      let aperture = exifData[kCGImagePropertyExifFNumber as String] as? Double,
-      let exposureTime = exifData[kCGImagePropertyExifExposureTime as String] as? Double
-    else {
+    guard let rawMetadata = CMCopyDictionaryOfAttachments(
+      allocator: nil,
+      target: sampleBuffer,
+      attachmentMode: CMAttachmentMode(kCMAttachmentMode_ShouldPropagate)
+    ) else {
       return nil
     }
 
-    guard aperture > 0, exposureTime > 0 else {
+    let metadata = CFDictionaryCreateMutableCopy(nil, 0, rawMetadata) as NSMutableDictionary
+    guard let exifData = metadata.value(forKey: "{Exif}") as? NSMutableDictionary else {
       return nil
     }
 
-    if let isoArray = exifData[kCGImagePropertyExifISOSpeedRatings as String] as? [Double],
-       let iso = isoArray.first, iso > 0 {
-      let constant = configuration.calibrationConstant
-      return (constant * aperture * aperture) / (exposureTime * iso)
+    guard let fNumber = exifData["FNumber"] as? Double,
+          let exposureTime = exifData["ExposureTime"] as? Double,
+          let isoArray = exifData["ISOSpeedRatings"] as? [Double],
+          let iso = isoArray.first else {
+      return nil
     }
 
-    return nil
+    guard fNumber > 0, exposureTime > 0, iso > 0 else {
+      return nil
+    }
+
+    let constant = configuration.calibrationConstant
+    return (constant * fNumber * fNumber) / (exposureTime * iso)
   }
 }
 
