@@ -98,7 +98,7 @@ async function startLightSensor() {
   // Start with custom options
   await startLuxUpdatesAsync({
     updateInterval: 0.5, // Update every 500ms
-    calibrationConstant: 250, // W3C standard (adjust 150-400 based on your needs)
+    calibrationConstant: 50, // Default calibration (adjust 30-80 based on your needs)
   });
 
   // Listen to updates
@@ -253,6 +253,31 @@ Where:
 - **30-40**: Darker environments or if readings seem too high
 
 **Note:** The minimum measurable lux is not 0. Due to camera physics (minimum exposure time, minimum ISO), even in complete darkness you may see values around 1-10 lux. This is expected behavior.
+
+### Lux Reference Values
+
+Use this table to understand what different lux readings mean in real-world conditions:
+
+| Condition | Lux |
+|-----------|-----|
+| Full moon | ~0.1 |
+| Twilight | 1 - 10 |
+| Corridors, storage | 100 |
+| Very dark overcast day | 100 - 500 |
+| Sunrise or sunset (clear) | 300 - 500 |
+| Office / classroom | 300 - 500 |
+| Overcast day | 1,000 - 2,000 |
+| Shade (sunny day) | 5,000 - 10,000 |
+| Full daylight (indirect) | 10,000 - 25,000 |
+| Direct sunlight | 30,000 - 100,000 |
+
+**Plant growing reference:**
+| Light Level | Lux | Suitable For |
+|-------------|-----|--------------|
+| Low light | 500 - 2,500 | ZZ plant, pothos, snake plant, ferns |
+| Medium light | 2,500 - 10,000 | Philodendron, peace lily |
+| Bright indirect | 10,000 - 20,000 | Fiddle leaf fig, monstera, rubber plant |
+| Direct sunlight | 20,000+ | Succulents, cacti, herbs |
 
 ## Permissions
 
