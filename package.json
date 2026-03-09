@@ -1,6 +1,6 @@
 {
   "name": "expo-lux-sensor",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A native Expo module for ambient light (lux) measurements. Uses hardware light sensor on Android (with camera fallback) and camera-based estimation on iOS.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -45,17 +45,17 @@
   "author": "15bedirhan <15bedirhan@gmail.com> (https://github.com/15bedirhan)",
   "license": "MIT",
   "homepage": "https://github.com/15bedirhan/expo-lux-sensor#readme",
-  "dependencies": {
-    "expo-modules-core": "^3.0.0"
-  },
   "devDependencies": {
-    "@types/react": "~19.1.0",
+    "@types/react": "~19.2.10",
     "expo-module-scripts": "^5.0.7",
-    "expo": "^54.0.24",
-    "react-native": "0.81.5"
+    "expo": "^55.0.0",
+    "expo-modules-core": "~55.0.14",
+    "react": "19.0.0",
+    "react-native": "0.83.2"
   },
   "peerDependencies": {
-    "expo": "*",
+    "expo": ">=54.0.0",
+    "expo-modules-core": ">=3.0.0",
     "react": "*",
     "react-native": "*"
   }
