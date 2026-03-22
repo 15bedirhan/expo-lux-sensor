@@ -1,21 +1,18 @@
-import { EventEmitter, type EventSubscription } from 'expo-modules-core';
+import { type EventSubscription } from 'expo-modules-core';
 
 import {
-    ExpoLuxSensorModuleEvents,
-    LuxMeasurement,
-    LuxSensorOptions,
-    PermissionResponse,
+  LuxMeasurement,
+  LuxSensorOptions,
+  PermissionResponse,
 } from './ExpoLuxSensor.types';
 import ExpoLuxSensorModule from './ExpoLuxSensorModule';
 
-const emitter = new EventEmitter<ExpoLuxSensorModuleEvents>(ExpoLuxSensorModule);
-
 export function addLuxListener(listener: (sample: LuxMeasurement) => void): EventSubscription {
-  return emitter.addListener('onLuxChanged', listener);
+  return ExpoLuxSensorModule.addListener('onLuxChanged', listener);
 }
 
 export function removeAllListeners(): void {
-  emitter.removeAllListeners('onLuxChanged');
+  ExpoLuxSensorModule.removeAllListeners('onLuxChanged');
 }
 
 export async function startLuxUpdatesAsync(options?: LuxSensorOptions): Promise<void> {
